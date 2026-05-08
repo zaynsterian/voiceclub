@@ -183,7 +183,7 @@ function IconButton({
   );
 }
 
-function App() {
+function DashboardPrototype() {
   const [selectedVoiceChannelId, setSelectedVoiceChannelId] =
     useState("match-room");
   const [selectedTextChannelId, setSelectedTextChannelId] = useState("general");
@@ -557,4 +557,4 @@ function App() {
   );
 }
 
-export default App;
+export default DashboardPrototype;
