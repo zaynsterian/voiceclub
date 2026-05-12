@@ -34,37 +34,45 @@ export default function AuthScreen() {
       return;
     }
 
+    if (cleanPassword.length < 6) {
+      setErrorMessage("Password must have at least 6 characters.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (isRegister) {
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
-          password: cleanPassword
+          password: cleanPassword,
+          options: {
+            data: {
+              username: cleanUsername
+            }
+          }
         });
 
-        if (error) throw error;
-
-        if (data.user) {
-          const { error: profileError } = await supabase.from("profiles").upsert({
-            id: data.user.id,
-            username: cleanUsername,
-            status: "active"
-          });
-
-          if (profileError) throw profileError;
+        if (error) {
+          throw error;
         }
 
-        setStatusMessage(
-          "Account created. If email confirmation is disabled, you will enter automatically. Otherwise, confirm your email and log in."
-        );
+        if (data.session) {
+          setStatusMessage("Account created. Entering VoiceClub...");
+        } else {
+          setStatusMessage(
+            "Account created. If email confirmation is enabled, confirm your email, then log in."
+          );
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password: cleanPassword
         });
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
       }
     } catch (error) {
       const message =
