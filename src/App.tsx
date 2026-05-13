@@ -1,16 +1,17 @@
 import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
-import DashboardPrototype from "./DashboardPrototype";
+import Dashboard from "./Dashboard";
 import { supabase } from "./lib/supabase";
 import AuthScreen from "./screens/AuthScreen";
-import CreateTeamScreen from "./screens/CreateTeamScreen";
+import NoTeamScreen from "./screens/NoTeamScreen";
 
 function LoadingScreen() {
   return (
     <div className="auth-page">
-      <div className="auth-card">
+      <div className="auth-card auth-card-small">
         <div className="auth-brand">
           <div className="brand-logo large">VC</div>
+
           <div>
             <h1>VoiceClub</h1>
             <p>Loading private session...</p>
@@ -26,6 +27,22 @@ function AuthedApp({ session }: { session: Session }) {
   const [hasTeam, setHasTeam] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  function refreshTeamState() {
+    setRefreshKey((value) => value + 1);
+  }
+
+  useEffect(() => {
+    function handleTeamUpdated() {
+      refreshTeamState();
+    }
+
+    window.addEventListener("voiceclub:team-updated", handleTeamUpdated);
+
+    return () => {
+      window.removeEventListener("voiceclub:team-updated", handleTeamUpdated);
+    };
+  }, []);
+
   useEffect(() => {
     async function checkTeam() {
       setCheckingTeam(true);
@@ -37,7 +54,7 @@ function AuthedApp({ session }: { session: Session }) {
         .limit(1);
 
       if (error) {
-        console.error(error);
+        console.error("Team check error:", error);
         setHasTeam(false);
         setCheckingTeam(false);
         return;
@@ -55,12 +72,10 @@ function AuthedApp({ session }: { session: Session }) {
   }
 
   if (!hasTeam) {
-    return (
-      <CreateTeamScreen onCreated={() => setRefreshKey((value) => value + 1)} />
-    );
+    return <NoTeamScreen onDone={refreshTeamState} />;
   }
 
-  return <DashboardPrototype />;
+  return <Dashboard session={session} />;
 }
 
 function App() {
@@ -74,7 +89,7 @@ function App() {
       const { data, error } = await supabase.auth.getSession();
 
       if (error) {
-        console.error(error);
+        console.error("Session load error:", error);
       }
 
       if (mounted) {

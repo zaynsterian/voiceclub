@@ -7,12 +7,30 @@ export default function AuthScreen() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("dragsteR");
+  const [inviteCode, setInviteCode] = useState("");
   const [password, setPassword] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const isRegister = mode === "register";
+
+  async function redeemPendingInvite(code: string) {
+    const cleanCode = code.trim();
+
+    if (!cleanCode) return;
+
+    const { error } = await supabase.rpc("redeem_team_invite", {
+      input_code: cleanCode
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    localStorage.removeItem("voiceclub_pending_invite_code");
+    window.dispatchEvent(new Event("voiceclub:team-updated"));
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -22,15 +40,11 @@ export default function AuthScreen() {
 
     const cleanEmail = email.trim();
     const cleanUsername = username.trim();
+    const cleanInviteCode = inviteCode.trim();
     const cleanPassword = password.trim();
 
     if (!cleanEmail || !cleanPassword) {
       setErrorMessage("Email and password are required.");
-      return;
-    }
-
-    if (isRegister && cleanUsername.length < 2) {
-      setErrorMessage("Username must have at least 2 characters.");
       return;
     }
 
@@ -39,10 +53,22 @@ export default function AuthScreen() {
       return;
     }
 
+    if (isRegister && cleanUsername.length < 2) {
+      setErrorMessage("Username must have at least 2 characters.");
+      return;
+    }
+
+    if (isRegister && cleanInviteCode.length < 4) {
+      setErrorMessage("Invite code is required for registration.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (isRegister) {
+        localStorage.setItem("voiceclub_pending_invite_code", cleanInviteCode);
+
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password: cleanPassword,
@@ -58,10 +84,12 @@ export default function AuthScreen() {
         }
 
         if (data.session) {
-          setStatusMessage("Account created. Entering VoiceClub...");
+          await redeemPendingInvite(cleanInviteCode);
+          setStatusMessage("Account created. Joining team...");
+          window.setTimeout(() => window.location.reload(), 250);
         } else {
           setStatusMessage(
-            "Account created. If email confirmation is enabled, confirm your email, then log in."
+            "Account created. Confirm your email if required, then log in. Your invite code was saved locally."
           );
         }
       } else {
@@ -72,6 +100,14 @@ export default function AuthScreen() {
 
         if (error) {
           throw error;
+        }
+
+        const pendingInvite = localStorage.getItem(
+          "voiceclub_pending_invite_code"
+        );
+
+        if (pendingInvite) {
+          await redeemPendingInvite(pendingInvite);
         }
       }
     } catch (error) {
@@ -88,6 +124,7 @@ export default function AuthScreen() {
       <div className="auth-card">
         <div className="auth-brand">
           <div className="brand-logo large">VC</div>
+
           <div>
             <h1>VoiceClub</h1>
             <p>Private lightweight team comms.</p>
@@ -133,6 +170,17 @@ export default function AuthScreen() {
             </label>
           )}
 
+          {isRegister && (
+            <label>
+              <span>Invite code</span>
+              <input
+                value={inviteCode}
+                onChange={(event) => setInviteCode(event.target.value)}
+                placeholder="VC-XXXXXXXXXX"
+              />
+            </label>
+          )}
+
           <label>
             <span>Email</span>
             <input
@@ -162,13 +210,13 @@ export default function AuthScreen() {
             {loading
               ? "Please wait..."
               : isRegister
-                ? "Create VoiceClub account"
+                ? "Create account & join team"
                 : "Enter VoiceClub"}
           </button>
         </form>
 
         <p className="auth-note">
-          Private access only. No public servers. No social bloat.
+          Private access only. Registration requires an invite code.
         </p>
       </div>
     </div>
