@@ -25,6 +25,9 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.1",
+    "@types/node": "^25.7.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "supabase": "^2.98.2",
     "typescript": "^5.8.0"
   }
