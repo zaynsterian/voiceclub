@@ -4566,3 +4566,177 @@ button.voice-control {
   opacity: 0.6;
   box-shadow: none;
 }
+
+/* ============================= */
+/* VoiceClub v0.2.1 - Voice panel readable participant cards */
+/* ============================= */
+
+/*
+  Fixes the issue where the voice warning forces the connected user cards
+  into a tiny scroll area. The whole voice panel no longer acts like one
+  cramped scroll container. Participant cards stay compact and readable.
+*/
+
+.center-column {
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Let the voice card size naturally instead of squeezing all rows into a tiny internal scroll. */
+.voice-live-panel {
+  flex: 0 0 auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  gap: 10px !important;
+  padding: 14px !important;
+}
+
+/* Make the room/status areas more compact so warnings do not steal card space. */
+.voice-room-context-card {
+  padding: 9px 12px !important;
+}
+
+.voice-live-actions {
+  gap: 8px !important;
+}
+
+.voice-join-button,
+.voice-leave-button {
+  height: 40px !important;
+}
+
+.voice-live-warning,
+.voice-live-error {
+  min-height: 38px !important;
+  padding: 9px 12px !important;
+}
+
+/* Participant cards must always remain readable. */
+.voice-live-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important;
+  gap: 9px !important;
+  min-height: 104px !important;
+  max-height: 236px !important;
+  overflow-y: auto !important;
+  padding-right: 3px !important;
+}
+
+.voice-live-card {
+  min-height: 104px !important;
+  padding: 12px !important;
+  border-radius: 20px !important;
+}
+
+.voice-live-card-top {
+  margin-bottom: 8px !important;
+}
+
+.voice-live-avatar {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 15px !important;
+}
+
+.voice-live-card strong {
+  font-size: 14px !important;
+}
+
+.voice-live-card span {
+  margin-top: 4px !important;
+  font-size: 12px !important;
+}
+
+/* The small meter inside each participant card can stay, but should not consume much space. */
+.voice-live-card .audio-meter {
+  height: 5px !important;
+  margin-top: 10px !important;
+}
+
+.voice-live-footer {
+  grid-template-columns: 1fr !important;
+  gap: 0 !important;
+}
+
+.voice-live-footer .voice-control:not(.passive) {
+  display: none !important;
+}
+
+.voice-live-footer .voice-control.passive {
+  min-height: 34px !important;
+}
+
+/* Keep chat usable beneath the voice area. */
+.chat-panel {
+  min-height: 220px !important;
+}
+
+/* On shorter screens, make participant cards horizontal instead of unreadably tall/clipped. */
+@media (max-height: 760px) {
+  .center-column {
+    gap: 10px !important;
+    padding: 16px !important;
+  }
+
+  .voice-live-panel {
+    padding: 12px !important;
+    gap: 8px !important;
+  }
+
+  .voice-live-grid {
+    grid-template-columns: 1fr !important;
+    min-height: 78px !important;
+    max-height: 176px !important;
+  }
+
+  .voice-live-card {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    column-gap: 10px !important;
+    align-items: center !important;
+    min-height: 72px !important;
+    padding: 10px 12px !important;
+  }
+
+  .voice-live-card-top {
+    display: contents !important;
+  }
+
+  .voice-live-card-top .status-dot {
+    justify-self: end !important;
+  }
+
+  .voice-live-card strong {
+    align-self: end !important;
+  }
+
+  .voice-live-card > span:not(.status-dot) {
+    grid-column: 2 / 3 !important;
+    align-self: start !important;
+  }
+
+  .voice-live-card .audio-meter {
+    display: none !important;
+  }
+
+  .voice-live-warning,
+  .voice-live-error {
+    font-size: 12px !important;
+  }
+
+  .chat-panel {
+    min-height: 190px !important;
+  }
+}
+
+/* On very short windows, allow the full center column to scroll instead of crushing one section. */
+@media (max-height: 650px) {
+  .center-column {
+    overflow-y: auto !important;
+  }
+
+  .chat-panel {
+    min-height: 180px !important;
+    flex: 0 0 auto !important;
+  }
+}
