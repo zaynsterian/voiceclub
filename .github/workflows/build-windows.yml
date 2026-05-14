@@ -43,7 +43,7 @@ jobs:
           Set-Content -Path $configPath -Value $config -NoNewline
 
       - name: Build and upload GitHub release
-        uses: tauri-apps/tauri-action@v1
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
