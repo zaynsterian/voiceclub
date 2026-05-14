@@ -1,6 +1,6 @@
 [package]
 name = "voiceclub"
-version = "0.2.0"
+version = "0.2.1"
 description = "Private team voice communication app"
 authors = ["VoiceClub"]
 edition = "2021"
