@@ -1,6 +1,7 @@
 import { ImagePlus, Save, Shield, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import ImageCropModal from "./ImageCropModal";
 
 export type UpdatedTeamIdentity = {
   teamId: string;
@@ -15,6 +16,8 @@ type TeamSettingsPanelProps = {
   onUpdated: (team: UpdatedTeamIdentity) => void | Promise<void>;
 };
 
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
 export default function TeamSettingsPanel({
   teamId,
   teamName,
@@ -24,6 +27,8 @@ export default function TeamSettingsPanel({
   const [nameDraft, setNameDraft] = useState(teamName);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(teamAvatarUrl);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [cropSource, setCropSource] = useState<string | null>(null);
+  const [cropFileName, setCropFileName] = useState("team-picture.webp");
 
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -48,9 +53,26 @@ export default function TeamSettingsPanel({
     setAvatarPreview(teamAvatarUrl);
   }, [teamName, teamAvatarUrl]);
 
+  useEffect(() => {
+    return () => {
+      if (cropSource) {
+        URL.revokeObjectURL(cropSource);
+      }
+    };
+  }, [cropSource]);
+
+  function closeCropModal() {
+    if (cropSource) {
+      URL.revokeObjectURL(cropSource);
+    }
+
+    setCropSource(null);
+  }
+
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
+    event.target.value = "";
     setErrorMessage("");
     setStatusMessage("");
 
@@ -61,19 +83,26 @@ export default function TeamSettingsPanel({
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setErrorMessage("Team picture must be under 2MB.");
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setErrorMessage("Team picture must be under 5MB.");
       return;
     }
 
+    closeCropModal();
+    setCropFileName(file.name);
+    setCropSource(URL.createObjectURL(file));
+  }
+
+  async function handleCropApplied(file: File) {
     setSelectedFile(file);
     setAvatarPreview(URL.createObjectURL(file));
+    closeCropModal();
   }
 
   async function uploadTeamIconIfNeeded(): Promise<string | undefined> {
     if (!selectedFile) return undefined;
 
-    const extension = selectedFile.name.split(".").pop()?.toLowerCase() || "png";
+    const extension = selectedFile.name.split(".").pop()?.toLowerCase() || "webp";
     const path = `${teamId}/${Date.now()}.${extension}`;
 
     const { error: uploadError } = await supabase.storage
@@ -243,6 +272,16 @@ export default function TeamSettingsPanel({
           {saving ? "Saving..." : "Save Team Identity"}
         </button>
       </form>
+
+      {cropSource && (
+        <ImageCropModal
+          imageUrl={cropSource}
+          fileName={cropFileName}
+          title="Edit team picture"
+          onCancel={closeCropModal}
+          onApply={handleCropApplied}
+        />
+      )}
     </div>
   );
 }

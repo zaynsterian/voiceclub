@@ -1,19 +1,14 @@
 import {
   Activity,
   AlertTriangle,
-  Headphones,
-  Keyboard,
   Loader2,
   LogIn,
   LogOut,
-  Mic,
-  MicOff,
   Radio,
   RefreshCw,
   Users,
   Volume2,
-  VolumeX,
-  Zap
+  VolumeX
 } from "lucide-react";
 import {
   RemoteAudioTrack,
@@ -327,7 +322,6 @@ export default function VoiceRoom({
   const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
   const [audioPreferences, setAudioPreferences] =
     useState<AudioPreferences>(loadAudioPreferences);
-  const [voiceInputLevel, setVoiceInputLevel] = useState(0);
   const [localTransmitting, setLocalTransmitting] = useState(false);
   const [pushToTalkPressed, setPushToTalkPressed] = useState(false);
   const [participantVolumes, setParticipantVolumes] =
@@ -373,9 +367,8 @@ export default function VoiceRoom({
     if (isReconnecting) return "Reconnecting";
     if (isConnected && !microphoneAvailable) return "Listen-only";
     if (isConnected && muted) return "Muted";
-    if (isConnected && localTransmitting) return "Transmitting";
-    if (isConnected && isPushToTalk) return "PTT Ready";
-    if (isConnected && isVoiceActivation) return "Voice Ready";
+    if (isConnected && localTransmitting) return "Talking";
+    if (isConnected && (isPushToTalk || isVoiceActivation)) return "Connected";
     if (isConnected) return "Connected";
     if (connectionState === "error") return "Error";
     return "Ready";
@@ -389,35 +382,6 @@ export default function VoiceRoom({
     localTransmitting,
     isPushToTalk,
     isVoiceActivation
-  ]);
-
-  const micModeLabel = useMemo(() => {
-    if (!isConnected && !isReconnecting) return "Not connected";
-    if (!microphoneAvailable) return "Listen-only";
-    if (muted) return "Muted override";
-    if (isPushToTalk) {
-      return pushToTalkPressed
-        ? "Push-to-talk transmitting"
-        : `Hold ${getReadableKey(audioPreferences.pushToTalkKey)} to talk`;
-    }
-
-    if (isVoiceActivation) {
-      return localTransmitting
-        ? "Voice detected — transmitting"
-        : "Voice activation listening";
-    }
-
-    return localTransmitting ? "Transmitting" : "Mic ready";
-  }, [
-    audioPreferences.pushToTalkKey,
-    isConnected,
-    isReconnecting,
-    isPushToTalk,
-    isVoiceActivation,
-    localTransmitting,
-    microphoneAvailable,
-    muted,
-    pushToTalkPressed
   ]);
 
   const voicePanelClassName = useMemo(() => {
@@ -608,7 +572,6 @@ export default function VoiceRoom({
     lastAnalyzerRunAtRef.current = 0;
     lastLevelUiUpdateAtRef.current = 0;
     lastVoiceInputLevelRef.current = 0;
-    setVoiceInputLevel(0);
   }
 
   function resetVoiceState() {
@@ -863,7 +826,6 @@ export default function VoiceRoom({
         if (shouldUpdateLevelUi) {
           lastVoiceInputLevelRef.current = level;
           lastLevelUiUpdateAtRef.current = now;
-          setVoiceInputLevel(level);
         }
 
         if (!mutedRef.current && level >= threshold) {
@@ -1334,44 +1296,7 @@ export default function VoiceRoom({
       )}
 
 
-      {(isConnected || isReconnecting) && microphoneAvailable && (
-        <div
-          className={
-            localTransmitting
-              ? "voice-transmission-card transmitting"
-              : "voice-transmission-card"
-          }
-        >
-          <div className="voice-transmission-info">
-            {isPushToTalk ? <Keyboard size={16} /> : <Zap size={16} />}
-            <div>
-              <strong>{isPushToTalk ? "Push-to-Talk" : "Voice Activation"}</strong>
-              <span>{micModeLabel}</span>
-            </div>
-          </div>
-
-          {isVoiceActivation && (
-            <div className="voice-transmission-meter">
-              <div className="voice-transmission-meter-top">
-                <span>Input</span>
-                <strong>{voiceInputLevel}%</strong>
-              </div>
-              <div className="voice-transmission-track">
-                <div
-                  className="voice-transmission-fill"
-                  style={{ width: `${voiceInputLevel}%` }}
-                />
-                <span
-                  className="voice-threshold-marker"
-                  style={{ left: `${audioPreferences.voiceActivationThreshold}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="voice-live-grid">
+            <div className="voice-live-grid">
         {isConnected || isReconnecting ? (
           participants.map((participant) => (
             <div
@@ -1406,7 +1331,7 @@ export default function VoiceRoom({
               <strong>{participant.name}</strong>
               <span>
                 {participant.isLocal ? "You" : "Teammate"}
-                {participant.isMuted ? " · Mic closed" : " · Transmitting"}
+                {participant.isMuted ? " · Mic closed" : " · Talking"}
               </span>
 
               <div className="audio-meter">
@@ -1476,58 +1401,10 @@ export default function VoiceRoom({
         )}
       </div>
 
-      <div className="voice-live-footer">
-        <button
-          type="button"
-          className={
-            !microphoneAvailable && (isConnected || isReconnecting)
-              ? "voice-control danger"
-              : muted
-                ? "voice-control danger"
-                : localTransmitting
-                  ? "voice-control active transmitting"
-                  : "voice-control active"
-          }
-          onClick={() => onMutedChange(!muted)}
-        >
-          {!microphoneAvailable && (isConnected || isReconnecting) ? (
-            <MicOff size={15} />
-          ) : muted ? (
-            <MicOff size={15} />
-          ) : (
-            <Mic size={15} />
-          )}
-          {!microphoneAvailable && (isConnected || isReconnecting)
-            ? "Listen-only"
-            : muted
-              ? "Muted"
-              : localTransmitting
-                ? "Transmitting"
-                : isPushToTalk
-                  ? "PTT Ready"
-                  : "Voice Ready"}
-        </button>
-
-        <div className={deafened ? "voice-control danger" : "voice-control active"}>
-          <Headphones size={15} />
-          {deafened ? "Deafened" : "Audio Active"}
-        </div>
-
-        <div className="voice-control passive">
+      <div className="voice-live-footer compact">
+        <div className="voice-control passive connected-count">
           <Users size={15} />
           {participants.length || 0} connected
-        </div>
-
-        <div className={performanceMode ? "voice-control active" : "voice-control passive"}>
-          <Zap size={15} />
-          {performanceMode ? "Performance" : "Standard"}
-        </div>
-
-        <div className="voice-control passive">
-          <Volume2 size={15} />
-          {audioPreferences.outputDeviceId === "default"
-            ? "Default output"
-            : "Custom output"}
         </div>
       </div>
 

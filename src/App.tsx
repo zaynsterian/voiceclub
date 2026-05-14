@@ -2,6 +2,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import Dashboard from "./Dashboard";
 import { supabase } from "./lib/supabase";
+import { checkForVoiceClubUpdatesOnce } from "./lib/checkForUpdates";
 import AuthScreen from "./screens/AuthScreen";
 import NoTeamScreen from "./screens/NoTeamScreen";
 
@@ -81,6 +82,10 @@ function AuthedApp({ session }: { session: Session }) {
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+
+  useEffect(() => {
+    void checkForVoiceClubUpdatesOnce();
+  }, []);
 
   useEffect(() => {
     let mounted = true;

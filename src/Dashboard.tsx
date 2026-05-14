@@ -14,7 +14,6 @@ import {
   Trash2,
   Unlock,
   Users,
-  Volume2,
   Zap
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -333,6 +332,12 @@ export default function Dashboard({ session }: DashboardProps) {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [unreadTextChannelIds, setUnreadTextChannelIds] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  const messageListRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const [selectedVoiceChannelId, setSelectedVoiceChannelId] = useState<
     string | null
@@ -389,6 +394,10 @@ export default function Dashboard({ session }: DashboardProps) {
   const textChannels = useMemo(() => {
     return channels.filter((channel) => channel.type === "text");
   }, [channels]);
+
+  const textChannelIds = useMemo(() => {
+    return new Set(textChannels.map((channel) => channel.id));
+  }, [textChannels]);
 
   const activeVoiceChannel = useMemo(() => {
     return (
@@ -1096,6 +1105,26 @@ export default function Dashboard({ session }: DashboardProps) {
   }, [currentMember?.accentColor]);
 
   useEffect(() => {
+    if (!activeTextChannel) return;
+
+    setUnreadTextChannelIds((currentUnread) => {
+      if (!currentUnread.has(activeTextChannel.id)) return currentUnread;
+
+      const nextUnread = new Set(currentUnread);
+      nextUnread.delete(activeTextChannel.id);
+      return nextUnread;
+    });
+  }, [activeTextChannel?.id]);
+
+  useEffect(() => {
+    if (!activeTextChannel || messagesLoading) return;
+
+    window.requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ block: "end" });
+    });
+  }, [activeTextChannel?.id, messages.length, messagesLoading]);
+
+  useEffect(() => {
     async function loadMessages() {
       if (!activeTextChannel) {
         setMessages([]);
@@ -1145,17 +1174,16 @@ export default function Dashboard({ session }: DashboardProps) {
   }, [activeTextChannel?.id]);
 
   useEffect(() => {
-    if (!activeTextChannel) return;
+    if (!team?.id || textChannels.length === 0) return;
 
     const realtimeChannel = supabase
-      .channel(`messages:${activeTextChannel.id}`)
+      .channel(`messages:team:${team.id}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
-          table: "messages",
-          filter: `channel_id=eq.${activeTextChannel.id}`
+          table: "messages"
         },
         (payload) => {
           const row = payload.new as {
@@ -1165,6 +1193,24 @@ export default function Dashboard({ session }: DashboardProps) {
             content: string;
             created_at: string;
           };
+
+          if (!textChannelIds.has(row.channel_id)) {
+            return;
+          }
+
+          if (row.channel_id !== activeTextChannel?.id) {
+            if (row.user_id !== session.user.id) {
+              setUnreadTextChannelIds((currentUnread) => {
+                if (currentUnread.has(row.channel_id)) return currentUnread;
+
+                const nextUnread = new Set(currentUnread);
+                nextUnread.add(row.channel_id);
+                return nextUnread;
+              });
+            }
+
+            return;
+          }
 
           const member = membersByUserId.get(row.user_id);
 
@@ -1194,7 +1240,14 @@ export default function Dashboard({ session }: DashboardProps) {
     return () => {
       supabase.removeChannel(realtimeChannel);
     };
-  }, [activeTextChannel?.id, membersByUserId]);
+  }, [
+    activeTextChannel?.id,
+    membersByUserId,
+    session.user.id,
+    team?.id,
+    textChannelIds,
+    textChannels.length
+  ]);
 
   function openCreateChannelModal(channelType: ChannelType) {
     setChannelModal({
@@ -1629,6 +1682,7 @@ export default function Dashboard({ session }: DashboardProps) {
                 <div className="channel-list">
                   {textChannels.map((channel) => {
                     const selected = channel.id === activeTextChannel?.id;
+                    const hasUnread = unreadTextChannelIds.has(channel.id);
 
                     return (
                       <div
@@ -1644,11 +1698,23 @@ export default function Dashboard({ session }: DashboardProps) {
                           className={
                             selected ? "text-channel selected" : "text-channel"
                           }
-                          onClick={() => setSelectedTextChannelId(channel.id)}
+                          onClick={() => {
+                            setSelectedTextChannelId(channel.id);
+                            setUnreadTextChannelIds((currentUnread) => {
+                              if (!currentUnread.has(channel.id)) return currentUnread;
+
+                              const nextUnread = new Set(currentUnread);
+                              nextUnread.delete(channel.id);
+                              return nextUnread;
+                            });
+                          }}
                         >
                           <MessageSquare size={16} />
                           <span>#{channel.name}</span>
                           {channel.locked && <Lock size={14} />}
+                          {hasUnread && !selected && (
+                            <span className="text-unread-dot" title="New messages" />
+                          )}
                         </button>
 
                         {canManageChannels && (
@@ -1793,7 +1859,7 @@ export default function Dashboard({ session }: DashboardProps) {
 
                   {errorMessage && <div className="chat-error">{errorMessage}</div>}
 
-                  <div className="message-list">
+                  <div className="message-list" ref={messageListRef}>
                     {messagesLoading && (
                       <div className="chat-empty">Loading messages...</div>
                     )}
@@ -1822,6 +1888,8 @@ export default function Dashboard({ session }: DashboardProps) {
                           </div>
                         </div>
                       ))}
+
+                    <div ref={messagesEndRef} />
                   </div>
 
                   <div className="chat-input-row">
@@ -1871,10 +1939,7 @@ export default function Dashboard({ session }: DashboardProps) {
                           avatarUrl={member.avatarUrl}
                           className="member-avatar"
                         />
-                        <StatusDot
-                          online={member.online}
-                          speaking={member.speaking}
-                        />
+                        <StatusDot online={member.online} />
                       </div>
 
                       <div className="member-info">
@@ -1882,7 +1947,6 @@ export default function Dashboard({ session }: DashboardProps) {
                         <span>{member.role}</span>
                       </div>
 
-                      {member.speaking && <Volume2 size={16} />}
                     </div>
                   ))}
                 </div>

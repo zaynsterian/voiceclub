@@ -1,7 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Default capability for the VoiceClub main window.",
-  "windows": ["main"],
-  "permissions": ["core:default"]
+  "identifier": "main-capability",
+  "description": "Main capability for the VoiceClub desktop window.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "process:default",
+    "updater:default"
+  ]
 }

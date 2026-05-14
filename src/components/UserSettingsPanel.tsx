@@ -2,6 +2,7 @@ import { ImagePlus, Palette, Save, Trash2, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { applyAccentColor, isValidHexColor } from "../lib/accent";
 import { supabase } from "../lib/supabase";
+import ImageCropModal from "./ImageCropModal";
 
 export type UpdatedUserProfile = {
   userId: string;
@@ -17,6 +18,8 @@ type UserSettingsPanelProps = {
   accentColor: string;
   onUpdated: (profile: UpdatedUserProfile) => void | Promise<void>;
 };
+
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const presetColors = [
   "#ff6a00",
@@ -40,6 +43,8 @@ export default function UserSettingsPanel({
   const [colorDraft, setColorDraft] = useState(accentColor || "#ff6a00");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(avatarUrl);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [cropSource, setCropSource] = useState<string | null>(null);
+  const [cropFileName, setCropFileName] = useState("profile-picture.webp");
 
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -56,6 +61,14 @@ export default function UserSettingsPanel({
     applyAccentColor(accentColor || "#ff6a00");
   }, [username, avatarUrl, accentColor]);
 
+  useEffect(() => {
+    return () => {
+      if (cropSource) {
+        URL.revokeObjectURL(cropSource);
+      }
+    };
+  }, [cropSource]);
+
   function handleColorChange(value: string) {
     setColorDraft(value);
 
@@ -64,9 +77,18 @@ export default function UserSettingsPanel({
     }
   }
 
+  function closeCropModal() {
+    if (cropSource) {
+      URL.revokeObjectURL(cropSource);
+    }
+
+    setCropSource(null);
+  }
+
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
+    event.target.value = "";
     setErrorMessage("");
     setStatusMessage("");
 
@@ -77,19 +99,26 @@ export default function UserSettingsPanel({
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setErrorMessage("Profile picture must be under 2MB.");
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setErrorMessage("Profile picture must be under 5MB.");
       return;
     }
 
+    closeCropModal();
+    setCropFileName(file.name);
+    setCropSource(URL.createObjectURL(file));
+  }
+
+  async function handleCropApplied(file: File) {
     setSelectedFile(file);
     setAvatarPreview(URL.createObjectURL(file));
+    closeCropModal();
   }
 
   async function uploadAvatarIfNeeded(): Promise<string | undefined> {
     if (!selectedFile) return undefined;
 
-    const extension = selectedFile.name.split(".").pop()?.toLowerCase() || "png";
+    const extension = selectedFile.name.split(".").pop()?.toLowerCase() || "webp";
     const path = `${userId}/${Date.now()}.${extension}`;
 
     const { error: uploadError } = await supabase.storage
@@ -296,6 +325,16 @@ export default function UserSettingsPanel({
           {saving ? "Saving..." : "Save Profile"}
         </button>
       </form>
+
+      {cropSource && (
+        <ImageCropModal
+          imageUrl={cropSource}
+          fileName={cropFileName}
+          title="Edit profile picture"
+          onCancel={closeCropModal}
+          onApply={handleCropApplied}
+        />
+      )}
     </div>
   );
 }
